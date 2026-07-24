@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Local Dev Server Manager
+Comment=Manage and run web dev servers with live ANSI logs and custom ports
+Exec="/home/msy/Desktop/Anti Gravity/Others/Run Servers Easily/start-app.sh"
+Icon=/home/msy/Desktop/Anti Gravity/Others/Run Servers Easily/assets/icon.png
+Terminal=false
+Type=Application
+Categories=Development;
