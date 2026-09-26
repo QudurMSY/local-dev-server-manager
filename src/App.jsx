@@ -7,6 +7,7 @@ import { FolderSearch, Plus, Layers, AlertCircle, RefreshCw } from 'lucide-react
 
 const LOCAL_STORAGE_PROJECTS_KEY = 'dev_server_manager_projects_v1';
 const LOCAL_STORAGE_ROOT_KEY = 'dev_server_manager_root_v1';
+const LOCAL_STORAGE_SETTINGS_KEY = 'dev_server_manager_settings_v1';
 
 export default function App() {
   const [projects, setProjects] = useState(() => {
@@ -20,6 +21,16 @@ export default function App() {
 
   const [scannedRootPath, setScannedRootPath] = useState(() => {
     return localStorage.getItem(LOCAL_STORAGE_ROOT_KEY) || '';
+  });
+
+  // Per-project user choices (selected script, port) that survive restarts
+  const [projectSettings, setProjectSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_SETTINGS_KEY);
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
   });
 
   const [projectStates, setProjectStates] = useState({});
@@ -36,6 +47,12 @@ export default function App() {
       localStorage.setItem(LOCAL_STORAGE_PROJECTS_KEY, JSON.stringify(projects));
     } catch (e) {}
   }, [projects]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LOCAL_STORAGE_SETTINGS_KEY, JSON.stringify(projectSettings));
+    } catch (e) {}
+  }, [projectSettings]);
 
   useEffect(() => {
     if (scannedRootPath) {
@@ -134,9 +151,9 @@ export default function App() {
 
   // Run Dev Server
   const handleRunProject = async (project) => {
-    const currentState = projectStates[project.id] || {};
-    const script = currentState.selectedScript || project.defaultScript || 'dev';
-    const customPort = currentState.port || '5173';
+    const settings = projectSettings[project.id] || {};
+    const script = settings.selectedScript || project.defaultScript || 'dev';
+    const customPort = settings.port || '5173';
 
     setProjectStates((prev) => ({
       ...prev,
@@ -202,7 +219,7 @@ export default function App() {
 
   // Port Change Handler
   const handlePortChange = (projectId, port) => {
-    setProjectStates((prev) => ({
+    setProjectSettings((prev) => ({
       ...prev,
       [projectId]: {
         ...prev[projectId],
@@ -213,7 +230,7 @@ export default function App() {
 
   // Script Selection Change
   const handleScriptChange = (projectId, script) => {
-    setProjectStates((prev) => ({
+    setProjectSettings((prev) => ({
       ...prev,
       [projectId]: {
         ...prev[projectId],
@@ -228,6 +245,10 @@ export default function App() {
       handleStopProject(projectId);
     }
     setProjects((existing) => existing.filter((p) => p.id !== projectId));
+    setProjectSettings((prev) => {
+      const { [projectId]: _removed, ...rest } = prev;
+      return rest;
+    });
   };
 
   // Open External Browser
@@ -250,9 +271,9 @@ export default function App() {
   // Filter & Search Computations
   const runningCount = Object.values(projectStates).filter((s) => s?.status === 'running').length;
   
-  const activePorts = Object.values(projectStates)
-    .filter((s) => s?.status === 'running' && s?.port)
-    .map((s) => s.port);
+  const activePorts = Object.entries(projectStates)
+    .filter(([id, s]) => s?.status === 'running' && projectSettings[id]?.port)
+    .map(([id]) => projectSettings[id].port);
 
   const filteredProjects = projects.filter((project) => {
     const matchesSearch =
@@ -331,6 +352,7 @@ export default function App() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredProjects.map((project) => {
               const state = projectStates[project.id] || {};
+              const settings = projectSettings[project.id] || {};
               const logs = projectLogs[project.id] || [];
 
               return (
@@ -340,8 +362,8 @@ export default function App() {
                   status={state.status || 'stopped'}
                   detectedUrl={state.detectedUrl}
                   logs={logs}
-                  customPort={state.port || '5173'}
-                  selectedScript={state.selectedScript || project.defaultScript || 'dev'}
+                  customPort={settings.port || '5173'}
+                  selectedScript={settings.selectedScript || project.defaultScript || 'dev'}
                   onPortChange={handlePortChange}
                   onScriptChange={handleScriptChange}
                   onRun={handleRunProject}
